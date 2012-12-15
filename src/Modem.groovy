@@ -25,7 +25,8 @@ class Modem {
         println "connecting..."
         init()
         connect()
-        ifconfig()
+        if (ipAddr)
+            ifconfig()
         println "done."
     }
 
@@ -52,19 +53,22 @@ class Modem {
      */
     private init() {
         def cmds = TmpFile.create()
-
-        cmds << 'ABORT ERROR' << endl << 'TIMEOUT 10' << endl <<
-                '"" ATZ' << endl <<
-                // skip pin
-                'OK "AT+COPS=0^m"' << endl <<
-                'OK "\\d\\d\\d\\d\\d\\d\\dAT+COPS=?^m"' << endl <<
-                'OK "AT+CGDCONT=1,\\"IP\\",\\"' << apn <<
-                '\\",\\"0.0.0.0\\",0,0^m"' << endl <<
-                'OK ""' << endl
-        def output = sendCommand(cmds)
-        def errors = output.grep { it =~ /^(ERROR|[+]CME)/ }
-        if (errors) {
-            throw new IOException("cannot connect: ${errors.join(', ')}")
+        try {
+            cmds << 'ABORT ERROR' << endl << 'TIMEOUT 10' << endl <<
+                    '"" ATZ' << endl <<
+                    // skip pin
+                    'OK "AT+COPS=0^m"' << endl <<
+                    'OK "\\d\\d\\d\\d\\d\\d\\dAT+COPS=?^m"' << endl <<
+                    'OK "AT+CGDCONT=1,\\"IP\\",\\"' << apn <<
+                    '\\",\\"0.0.0.0\\",0,0^m"' << endl <<
+                    'OK ""' << endl
+            def output = sendCommand(cmds)
+            def errors = output.grep { it =~ /^(ERROR|[+]CME)/ }
+            if (errors) {
+                throw new IOException("cannot connect: ${errors.join(', ')}")
+            }
+        } finally {
+            cmds.delete()
         }
     }
 
@@ -87,7 +91,7 @@ class Modem {
                         println "owan to shot: ${owan.join(', ')}"
                         continue
                     }
-                    (ipAddr, nameServers) = [ owan[1], owan[3..4] ]
+                    (ipAddr, nameServers) = [owan[1], owan[3..4]]
                     println "Connected. I've got IP = $ipAddr and DNSs ${nameServers.join(' ')}"
                 }
             }

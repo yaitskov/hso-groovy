@@ -1,5 +1,5 @@
 #!/bin/bash
 
 
-P=$(dirname $0)
-exec groovy -cp $P $P/hso_connect.groovy
+P="$(cd -P "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+exec groovy -cp "$P" "$P/hso_connect.groovy"
