@@ -1,4 +1,4 @@
-#!/usr/bin/groovy
+#!/usr/bin/groovy 
 /**
  *
  * This program is port hso_connect.sh for my Beeline USB model.

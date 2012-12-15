@@ -5,9 +5,10 @@ class Tester {
         def pingPro = "ping -c 1 8.8.4.4".execute()
 
         if (pingPro.waitFor()) {
-            println pingPro.text
+            print "-\b-"
             return false
         }
+        print "+\b+"
         true
     }
 }
