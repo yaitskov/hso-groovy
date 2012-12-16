@@ -24,9 +24,9 @@ class Modem {
     def up() {
         println "connecting..."
         init()
-        connect()
+        getIpDnsNss()
         if (ipAddr)
-            ifconfig()
+            setGotConfig()
         println "done."
     }
 
@@ -65,14 +65,14 @@ class Modem {
             def output = sendCommand(cmds)
             def errors = output.grep { it =~ /^(ERROR|[+]CME)/ }
             if (errors) {
-                throw new IOException("cannot connect: ${errors.join(', ')}")
+                throw new IOException("cannot getIpDnsNss: ${errors.join(', ')}")
             }
         } finally {
             cmds.delete()
         }
     }
 
-    private connect() {
+    private getIpDnsNss() {
         def cmds = TmpFile.create()
         try {
             cmds << 'ABORT ERROR' << endl << 'TIMEOUT 10' << endl <<
@@ -101,11 +101,55 @@ class Modem {
     }
 
 
-    private ifconfig() {
-        println "Setting IP address $ipAddr"
-        Cmd.few "ifconfig $netdev $ipAddr netmask 255.255.255.255 up"
-        println "Adding route"
-        Cmd.few "route add default dev $netdev"
+    private setGotConfig() {
+        ifconfig()
+        addRoute()
+        setupNameServers()
+    }
+
+    def netMask = '255.255.255.255'
+
+    private void ifconfig() {
+        println "setting IP address $ipAddr"
+        // get current address assigned to netdev
+        def ifconfigOutput = Cmd.few("ifconfig").split("\n");
+        def hsoLine = ifconfigOutput.findIndexOf { it =~ /$netdev/ }
+        if (hsoLine < 0) {
+            println "    net device '$netdev' is down"
+            Cmd.few "ifconfig $netdev $ipAddr netmask $netMask up"
+        } else {
+            println "   checking ip address "
+            def hsoIpMask = ifconfigOutput[hsoLine + 1]
+            def matched = hsoIpMask =~ /inet addr: *([0-9.]+).*Mask: *([0-9.]+).*/;
+            if (matched) {
+                if (matched[0][1] != ipAddr || matched[0][2] != netMask) {
+                    println "      update ip address to $ipAddr"
+                    Cmd.few "ifconfig $netdev $ipAddr netmask $netMask up"
+                }
+            }
+        }
+    }
+
+    private void addRoute() {
+        println "checking routes"
+        def routes = Cmd.few("route").split "\n"
+        def netDevRoutes = routes.grep { route -> route =~ /$netdev *$/ }
+        def validRoutes = netDevRoutes.grep { route ->
+            def match = route =~ /^([^ \t]+).*/
+            if (match[0][1] != 'default') {
+                println "   delete route ${match[0][1]}"
+                Cmd.few "route del ${match[0][1]}"
+                return false
+            }
+            return true
+        }
+        if (!validRoutes) {
+            println "   adding new route"
+            Cmd.few "route add default dev $netdev"
+        }
+    }
+
+    private void setupNameServers() {
         def resolv = new File("/etc/resolv.conf")
         resolv.delete()
         resolv << nameServers.collect { "nameserver $it" }.join("\n")

@@ -4,7 +4,7 @@ class Cmd {
     /**
      * Fork exec wait
      */
-    static void few(String command) {
+    static few(String command) {
         def proc = command.execute()
         def ecode = proc.waitFor()
         if (ecode) {
